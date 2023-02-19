@@ -2,14 +2,15 @@ package com.sql.parser.lineage.doris;
 
 
 import com.sql.parser.lineage.model.lineage.*;
-import com.sql.parser.lineage.doris.DorisParser;
+import doris.DorisParser;
+import doris.DorisParserBaseVisitor;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.sql.parser.lineage.doris.DorisParser.*;
+import static doris.DorisParser.*;
 
 
 public class DorisFieldLineageParser extends DorisParserBaseVisitor {

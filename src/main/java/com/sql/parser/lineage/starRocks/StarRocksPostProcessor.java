@@ -10,6 +10,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.RuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.apache.commons.lang.StringUtils;
 import starRcoks.StarRocksBaseListener;
 import starRcoks.StarRocksParser;
 
@@ -17,7 +18,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class StarRocksPostProcessor extends StarRocksBaseListener {
-    private Boolean namedExpressionSeqFlag;
+    private Boolean namedExpressionSeqFlag = true;
     private TableNameModel outputTable;
     private final HashMap<String, FieldLineageSelectModel> dorisFieldSelects = new LinkedHashMap<>();
     private final Map<Integer, String> selectParentKeyMap = new HashMap<>();
@@ -58,152 +59,134 @@ public class StarRocksPostProcessor extends StarRocksBaseListener {
     String fromClauseContextText = "";
     Boolean isUnionFlag = false;
 
-//    /**
-//     * Remove the back ticks from an Identifier.
-//     */
-//    @Override
-//    public void exitQuotedIdentifier(QuotedIdentifierContext ctx) {
-//        ParserRuleContext parent = ctx.getParent();
-//        parent.removeLastChild();
-//        Token token = (Token) ctx.getChild(0).getPayload();
-//
-//        CommonToken commonToken = new CommonToken(
-//                new org.antlr.v4.runtime.misc.Pair(token.getTokenSource(), token.getInputStream()),
-//                DorisParser.IDENTIFIER,
-//                token.getChannel(),
-//                token.getStartIndex() + 1,
-//                token.getStopIndex() - 1);
-//
-//        commonToken.setText(commonToken.getText().replace("``", "`"));
-//        parent.addChild(commonToken);
-//    }
 
-//    /**
-//     * Treat non-reserved keywords as Identifiers.
-//     */
-//    @Override
-//    public void exitNonReserved(DorisParser.NonReservedContext ctx) {
-//        ParserRuleContext parent = ctx.getParent();
-//        parent.removeLastChild();
-//        Token token = (Token) ctx.getChild(0).getPayload();
-//
-//        parent.addChild(new CommonToken(
-//                new org.antlr.v4.runtime.misc.Pair(token.getTokenSource(), token.getInputStream()),
-//                DorisParser.IDENTIFIER,
-//                token.getChannel(),
-//                token.getStartIndex() + 0,
-//                token.getStopIndex() - 0));
-//    }
-
-//    @Override
-//    public void enterFromClause(DorisParser.FromClauseContext ctx) {
-//        aliasedQueryParentFromClauseTextUnion = ctx.getText();
-////        aliasedQueryParentFromClauseTextUnionId = ctx.getStart().getStartIndex();
-//
-//        super.enterFromClause(ctx);
-//    }
-//
-//    @Override
-//    public void enterTableAlias(DorisParser.TableAliasContext ctx) {
-//        super.enterTableAlias(ctx);
-//    }
+    /**
+     * 判断是否使用了union关键字
+     *
+     * @param ctx
+     */
+    @Override
+    public void enterSetOperation(StarRocksParser.SetOperationContext ctx) {
+        TerminalNode union = ctx.UNION();
+        if (ctx.UNION() != null) {
+            isUnionFlag = true;
+            aliasedTableTextUnion = tableAlias;
+            aliasedQueryParentFromClauseTextUnionId = fromClauseContextId;
+        }
+        super.enterSetOperation(ctx);
+    }
 
 
-//    @Override
-//    public void enterAliasedQuery(DorisParser.AliasedQueryContext ctx) {
-//        if (aliasedQueryParentType.equals("RELATION")) {
-//            aliasedQueryParentFromClauseText = Optional.ofNullable(ctx.getParent().getParent()).map(ParserRuleContext::getText).orElse("");
-//            aliasedQueryParentFromClauseId = Optional.ofNullable(ctx.getParent().getParent()).map(ParserRuleContext::getStart).get().getStartIndex();
-//
-//        }
-//        if (aliasedQueryParentType.equals("JOIN_RELATION")) {
-//            aliasedQueryParentFromClauseText = Optional.ofNullable(ctx.getParent().getParent().getParent().getParent()).map(ParserRuleContext::getText).orElse("");
-//            aliasedQueryParentFromClauseId = Optional.ofNullable(ctx.getParent().getParent().getParent().getParent()).map(ParserRuleContext::getStart).get().getStartIndex();
-//
-//        }
-//        tableAlias = ctx.tableAlias().getText();
-//
-//        super.enterAliasedQuery(ctx);
-//    }
+    @Override
+    public void enterQuerySpecification(StarRocksParser.QuerySpecificationContext ctx) {
+        StarRocksParser.FromClauseContext fromClauseContext = ctx.fromClause();
+        fromClauseContextText = fromClauseContext.getText();
+        fromClauseContextId = fromClauseContext.getStart().getStartIndex();
 
-//    @Override
-//    public void enterRelation(DorisParser.RelationContext ctx) {
-//        aliasedQueryParentType = "RELATION";
-//        super.enterRelation(ctx);
-//    }
-//
-//
-//    @Override
-//    public void enterJoinRelation(DorisParser.JoinRelationContext ctx) {
-//        aliasedQueryParentType = "JOIN_RELATION";
-//        super.enterJoinRelation(ctx);
-//    }
+        if (isUnionFlag && unionIndex == -1) {
+            unionIndex = 0;
+        } else if (isUnionFlag && unionIndex >= 0) {
+            unionIndex += 1;
+        }
+        selectIndex = 0;
+        super.enterQuerySpecification(ctx);
+    }
+
+    @Override
+    public void enterQueryNoWith(StarRocksParser.QueryNoWithContext ctx) {
+        // StarRocks union 是339
+        if (ctx.getParent().getTokens(339).size() != 0) {
+            unionFastSelectFlag = true;
+        } else {
+            unionFastSelectFlag = false;
+        }
+        super.enterQueryNoWith(ctx);
+    }
+
+    @Override
+    public void enterFrom(StarRocksParser.FromContext ctx) {
+        aliasedQueryParentFromClauseTextUnion = ctx.getText();
+        super.enterFrom(ctx);
+    }
+
+    @Override
+    public void enterTableAtom(StarRocksParser.TableAtomContext ctx) {
+        if (aliasedQueryParentType.equals("RELATION")) {
+            aliasedQueryParentFromClauseText = Optional.ofNullable(ctx.getParent().getParent()).map(ParserRuleContext::getText).orElse("");
+            aliasedQueryParentFromClauseId = Optional.ofNullable(ctx.getParent().getParent()).map(ParserRuleContext::getStart).get().getStartIndex();
+
+        }
+        if (aliasedQueryParentType.equals("JOIN_RELATION")) {
+            aliasedQueryParentFromClauseText = Optional.ofNullable(ctx.getParent().getParent().getParent().getParent()).map(ParserRuleContext::getText).orElse("");
+            aliasedQueryParentFromClauseId = Optional.ofNullable(ctx.getParent().getParent().getParent().getParent()).map(ParserRuleContext::getStart).get().getStartIndex();
+
+        }
+        // 求表名字
+        // tableAlias = ctx.qualifiedName().getText();
+        if (!StringUtils.isEmpty(tableAlias)) {
+            tableAlias = ctx.alias.getText();
+        }
+        tableNameModel = new TableNameModel();
+//        tableNameModel = Optional.ofNullable(ctx).map(DorisParser.TableNameContext::getText).map(TableNameModel::parseTableName).get();
+        tableNameModel = Optional.ofNullable(ctx).map(StarRocksParser.TableAtomContext::qualifiedName).map(RuleContext::getText).map(TableNameModel::parseTableName).get();
+
+        Integer startIndex = ctx.getParent().getStart().getStartIndex();
+        for (DorisFieldLineageSelectModel lineageSelectModel : dorisFieldLineageSelectModelAllList) {
+            if (lineageSelectModel.getId().equals(startIndex.toString())) {
+                lineageSelectModel.setFromTable(tableNameModel);
+            }
+        }
+
+        super.enterTableAtom(ctx);
+    }
+
+    @Override
+    public void enterDereference(StarRocksParser.DereferenceContext ctx) {
+        dereference = true;
+        super.enterDereference(ctx);
+    }
+
+    @Override
+    public void exitDereference(StarRocksParser.DereferenceContext ctx) {
+        dereference = false;
+        super.exitDereference(ctx);
+    }
+
+    @Override
+    public void enterRelation(StarRocksParser.RelationContext ctx) {
+        aliasedQueryParentType = "RELATION";
+        super.enterRelation(ctx);
+    }
 
 
-//    @Override
-//    public void enterSelectClause(DorisParser.SelectClauseContext ctx) {
-//        String fromClauseText = Optional.ofNullable(((DorisParser.RegularQuerySpecificationContext) ctx.parent))
-//                .map(DorisParser.RegularQuerySpecificationContext::fromClause)
-//                .map(DorisParser.FromClauseContext::getText).orElse("");
-//        DorisParser.FromClauseContext fromClauseContext = Optional.ofNullable(((DorisParser.RegularQuerySpecificationContext) ctx.parent))
-//                .map(DorisParser.RegularQuerySpecificationContext::fromClause).get();
-//        fromClauseContextText = fromClauseContext.getText();
-//        fromClauseContextId = fromClauseContext.getStart().getStartIndex();
-//        if (isUnionFlag && unionIndex == -1) {
-//            unionIndex = 0;
-//        } else if (isUnionFlag && unionIndex >= 0) {
-//            unionIndex += 1;
-//        }
-//        selectIndex = 0;
-//        super.enterSelectClause(ctx);
-//    }
+    @Override
+    public void enterJoinRelation(StarRocksParser.JoinRelationContext ctx) {
+        aliasedQueryParentType = "JOIN_RELATION";
+        super.enterJoinRelation(ctx);
+    }
 
-//    @Override
-//    public void enterNamedExpressionSeq(DorisParser.NamedExpressionSeqContext ctx) {
-//        namedExpressionSeqFlag = true;
-//        super.enterNamedExpressionSeq(ctx);
-//    }
-//
-//    @Override
-//    public void exitNamedExpressionSeq(DorisParser.NamedExpressionSeqContext ctx) {
-//        namedExpressionSeqFlag = false;
-//        super.exitNamedExpressionSeq(ctx);
-//    }
+    @Override
+    public void enterSelectSingle(StarRocksParser.SelectSingleContext ctx) {
+        final Optional<StarRocksParser.IdentifierContext> errorCapturingIdentifierContext = Optional.ofNullable(ctx.identifier());
+        String fieldName = Optional.ofNullable(ctx.identifier()).map(StarRocksParser.IdentifierContext::getText).orElse("");
+        if (fieldName.equals("")) {
+            nameAsFlag = false;
+        } else {
+            nameAsFlag = true;
+        }
+        nameExpressionFlag = true;
+        final String text = ctx.getText();
 
-//    @Override
-//    public void enterNamedExpression(DorisParser.NamedExpressionContext ctx) {
-//        final Optional<DorisParser.ErrorCapturingIdentifierContext> errorCapturingIdentifierContext = Optional.ofNullable(ctx.errorCapturingIdentifier());
-//        String fieldName = Optional.ofNullable(ctx.errorCapturingIdentifier()).map(DorisParser.ErrorCapturingIdentifierContext::getText).orElse("");
-//        if (fieldName.equals("")) {
-//            nameAsFlag = false;
-//        } else {
-//            nameAsFlag = true;
-//        }
-//        nameExpressionFlag = true;
-//        final String text = ctx.getText();
-//
-//
-//        processText = Optional.ofNullable(ctx).map(DorisParser.NamedExpressionContext::expression)
-//                .map(DorisParser.ExpressionContext::getText)
-//                .orElse("");
-//
-//        fieldAsName = Optional.ofNullable(ctx.errorCapturingIdentifier())
-//                .map(DorisParser.ErrorCapturingIdentifierContext::getText)
-//                .orElse("");
-//        super.enterNamedExpression(ctx);
-//    }
 
-//    @Override
-//    public void enterDereference(DorisParser.DereferenceContext ctx) {
-//        dereference = true;
-//        super.enterDereference(ctx);
-//    }
-//
-//    @Override
-//    public void exitDereference(DorisParser.DereferenceContext ctx) {
-//        dereference = false;
-//        super.exitDereference(ctx);
-//    }
+        processText = Optional.ofNullable(ctx).map(StarRocksParser.SelectSingleContext::expression)
+                .map(StarRocksParser.ExpressionContext::getText)
+                .orElse("");
+
+        fieldAsName = Optional.ofNullable(ctx.identifier())
+                .map(StarRocksParser.IdentifierContext::getText)
+                .orElse("");
+        super.enterSelectSingle(ctx);
+    }
 
 
     @Override
@@ -229,9 +212,9 @@ public class StarRocksPostProcessor extends StarRocksBaseListener {
 //        if ((namedExpressionSeqFlag && !isUnionFlag) || (namedExpressionSeqFlag && unionIndex == 0)) {
         if (namedExpressionSeqFlag) {
             if (dereference) {
-                computedFieldName = Optional.ofNullable((DorisParser.DereferenceContext) ctx.parent)
-                        .map(DorisParser.DereferenceContext::identifier)
-                        .map(DorisParser.IdentifierContext::getText).orElse("");
+                computedFieldName = Optional.ofNullable(ctx)
+                        .map(StarRocksParser.ColumnReferenceContext::identifier)
+                        .map(StarRocksParser.IdentifierContext::getText).orElse("");
                 fieldTableAliasName = ctx.getText();
                 dorisFieldLineageSelectModel.setFieldTableAlias(fieldTableAliasName);
                 dereference = false;
@@ -257,30 +240,11 @@ public class StarRocksPostProcessor extends StarRocksBaseListener {
         super.enterColumnReference(ctx);
     }
 
-//    @Override
-//    public void enterTableName(DorisParser.TableNameContext ctx) {
-//        tableNameModel = new TableNameModel();
-////        tableNameModel = Optional.ofNullable(ctx).map(DorisParser.TableNameContext::getText).map(TableNameModel::parseTableName).get();
-//        tableNameModel = Optional.ofNullable(ctx).map(DorisParser.TableNameContext::multipartIdentifier).map(RuleContext::getText).map(TableNameModel::parseTableName).get();
-//
-//        Integer startIndex = ctx.getParent().getParent().getStart().getStartIndex();
-//        for (DorisFieldLineageSelectModel lineageSelectModel : dorisFieldLineageSelectModelAllList) {
-//            if (lineageSelectModel.getId().equals(startIndex.toString())) {
-//                lineageSelectModel.setFromTable(tableNameModel);
-//            }
-//        }
-//        super.enterTableName(ctx);
-//    }
-
-//    @Override
-//    public void enterInsertIntoTable(DorisParser.InsertIntoTableContext ctx) {
-//        targetTable = new TableNameModel();
-//        targetTable = Optional.ofNullable(ctx).map(DorisParser.InsertIntoTableContext::multipartIdentifier)
-//                .map(DorisParser.MultipartIdentifierContext::getText)
-//                .map(TableNameModel::parseTableName)
-//                .get();
-//        super.enterInsertIntoTable(ctx);
-//    }
+    @Override
+    public void enterInsertStatement(StarRocksParser.InsertStatementContext ctx) {
+        targetTable = new TableNameModel();
+        targetTable = Optional.ofNullable(ctx).map(StarRocksParser.InsertStatementContext::qualifiedName).map(RuleContext::getText).map(TableNameModel::parseTableName).get();
+    }
 
 
 //    @Override
@@ -364,7 +328,7 @@ public class StarRocksPostProcessor extends StarRocksBaseListener {
     private void findFieldSource(String targetField, String parentId) {
     }
 
-    public List<FieldLineageModel> getDorisFieldLineage() {
+    public List<FieldLineageModel> getStarRocksFieldLineage() {
         List<DorisFieldLineageSelectModel> collect = dorisFieldLineageSelectModelAllList.stream().filter(i -> i.getParentId().equals("0"))
                 .map(i -> {
                     i.setChildren(getSourceFields(i, dorisFieldLineageSelectModelAllList));

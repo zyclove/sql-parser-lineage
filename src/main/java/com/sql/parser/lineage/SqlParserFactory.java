@@ -5,6 +5,8 @@ import com.sql.parser.lineage.doris.MyDorisSqlVisitorParser;
 import com.sql.parser.lineage.enums.SqlEngineEnum;
 import com.sql.parser.lineage.hive.MyHiveSqlParser;
 import com.sql.parser.lineage.presto.MyPresoSqlParser;
+import com.sql.parser.lineage.starRocks.MyStarRocksLintenerParse;
+import com.sql.parser.lineage.starRocks.StarRocksPostProcessor;
 
 /**
  * @ClassName SqlParserFactory
@@ -23,6 +25,8 @@ public class SqlParserFactory {
             return new MyDorisSqlVisitorParser();
         } else if (SqlEngineEnum.DORIS_LISTENER.equals(sqlEngineEnum)) {
             return new MyDorisSqlListenerParser();
+        } else if (SqlEngineEnum.STARROCKS_LISTENER.equals(sqlEngineEnum)) {
+            return new MyStarRocksLintenerParse();
         }
         throw new RuntimeException("db type is not support");
     }

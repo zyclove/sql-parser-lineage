@@ -7,5 +7,5 @@ package com.sql.parser.lineage.enums;
  * @Date: 2021/3/10 4:08 下午
  */
 public enum SqlEngineEnum {
-    MYSQL, HIVE, SPARK, PRESTO, DORIS_LISTENER, DORIS_VISITOR;
+    MYSQL, HIVE, SPARK, PRESTO, DORIS_LISTENER, DORIS_VISITOR, STARROCKS_LISTENER;
 }

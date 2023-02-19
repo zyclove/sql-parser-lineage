@@ -45,12 +45,37 @@ public class MyStarRocksLintenerParse extends SqlParserAbstract {
 
     @Override
     public List<FieldLineageModel> parseSqlFieldLineage(String sql) {
+        String s = sqlRewrite(sql);
         // 新建一个标准的Antlr语法分析树遍历器
         ParseTreeWalker parseTreeWalker = new ParseTreeWalker();
         // 新建一个监听器，将其传递给遍历器
         StarRocksPostProcessor starRocksPostProcessor = new StarRocksPostProcessor();
         // 遍历语法分析树
         parseTreeWalker.walk(starRocksPostProcessor, getParseTree(sql));
-        return starRocksPostProcessor.getDorisFieldLineage();
+        return starRocksPostProcessor.getStarRocksFieldLineage();
+    }
+
+
+    public String sqlRewrite(String sql) {
+
+        ANTLRInputStream input = new ANTLRInputStream(sql);
+        StarRocksLexer lexer = new StarRocksLexer(input);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        StarRocksParser parser = new StarRocksParser(tokens);
+        parser.setBuildParseTree(true);      // tell ANTLR to build a parse tree
+        ParseTree tree = parser.singleStatement(); // parse
+        // show tree in text form
+        System.out.println(tree.toStringTree(parser));
+        DorisSqlRewrite dorisSqlRewrite = new DorisSqlRewrite();
+        String result = dorisSqlRewrite.visit(tree);
+        // 新建一个标准的Antlr语法分析树遍历器
+        ParseTreeWalker parseTreeWalker = new ParseTreeWalker();
+        // 新建一个监听器，将其传递给遍历器
+        DorisSqlListenerRewrite dorisSqlListenerRewrite = new DorisSqlListenerRewrite();
+        // 遍历语法分析树
+        parseTreeWalker.walk(dorisSqlListenerRewrite, getParseTree(sql));
+        String sqlStr = dorisSqlRewrite.sqlStr;
+        return result;
+
     }
 }

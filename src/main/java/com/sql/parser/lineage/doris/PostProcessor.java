@@ -1,7 +1,7 @@
 package com.sql.parser.lineage.doris;
 
 
-import com.sql.parser.lineage.doris.DorisParser;
+import doris.DorisParser;
 import doris.DorisParserBaseListener;
 import org.antlr.v4.runtime.CommonToken;
 import org.antlr.v4.runtime.ParserRuleContext;

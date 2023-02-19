@@ -280,7 +280,10 @@ public class DorisPostProcessor extends DorisParserBaseListener {
         super.enterInsertIntoTable(ctx);
     }
 
-
+    /**
+     * 判断是否使用了union关键字
+     * @param ctx
+     */
     @Override
     public void enterSetOperation(DorisParser.SetOperationContext ctx) {
         TerminalNode union = ctx.UNION();

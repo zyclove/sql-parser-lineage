@@ -3,8 +3,8 @@ package com.sql.parser.lineage.doris;
 
 import com.sql.parser.lineage.SqlParserAbstract;
 import com.sql.parser.lineage.model.lineage.FieldLineageModel;
-import com.sql.parser.lineage.doris.DorisLexer;
-import com.sql.parser.lineage.doris.DorisParser;
+import doris.DorisLexer;
+import doris.DorisParser;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CodePointCharStream;
 import org.antlr.v4.runtime.CommonTokenStream;

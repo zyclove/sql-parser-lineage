@@ -1,7 +1,8 @@
 package com.sql.parser.lineage.starRocks;
 
 
-import com.sql.parser.lineage.doris.DorisParser;
+import doris.DorisParser;
+import doris.DorisParserBaseVisitor;
 
 import java.util.HashMap;
 import java.util.List;

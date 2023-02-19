@@ -10,7 +10,7 @@ import java.util.List;
 
 public class DorisSqlRewrite extends DorisParserBaseVisitor<String> {
     HashMap<String, String> sourceTableMapWith = new HashMap<>();
-    String sqlStr;
+    public String sqlStr;
 
     @Override
     public String visitSingleStatement(DorisParser.SingleStatementContext ctx) {

@@ -2,6 +2,7 @@ package com.sql.parser.lineage.doris;
 
 
 import com.sql.parser.lineage.model.lineage.TableNameModel;
+import doris.DorisParserBaseVisitor;
 
 import java.util.HashSet;
 
