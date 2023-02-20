@@ -1,6 +1,7 @@
 package com.sql.parser.lineage.schema;
 
 import com.google.common.collect.Lists;
+import com.sql.parser.lineage.starRocks.ColumnContext;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
